@@ -75,7 +75,7 @@ python app.py
 | **Polski** | **English** |
 |------------|-------------|
 | ✉️ **Email:** kazu1916@gmail.com | ✉️ **Email:** kazu1916@gmail.com |
-| 🐞 **Zgłoszenia błędów:** [GitHub Issues](https://github.com/Kazu1916porfolio/analiza-spolek-gpw/issues) | 🐞 **Bug Reports:** [GitHub Issues](https://github.com/Kazu1916porfolio/gpw-stock-analysis/issues) |
+| 🐞 **Zgłoszenia błędów:** [GitHub Issues](https://github.com/Kazu1916porfolio/GPW_AI/issues) | 🐞 **Bug Reports:** [GitHub Issues](https://github.com/Kazu1916porfolio/GPW_AI/issues) |
 | 💼 **Współpraca:** [LinkedIn](https://linkedin.com/in/kamil-wójcik-b6b3a6281) | 💼 **Collaboration:** [LinkedIn](https://linkedin.com/in/kamil-wójcik-b6b3a6281) |
 
 ## 📜 Licencja / License
