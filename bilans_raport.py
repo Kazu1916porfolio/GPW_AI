@@ -236,8 +236,14 @@ dfFFbilans['roznicaBilans']=dfFFbilans['AktualnyKwartalWzrostBilans']-dfFFbilans
 dfFF['roznica']=dfFF['AktualnyKwartalWzrost']-dfFF['AktualnyKwartalSpadek']
 ingotwanie_symbol=['OEX','REM','LHD','PGG','SES','OVO']
 #ingotwanie_symbol=[]
-dfFFbilans['roznica']=dfFFbilans.apply(lambda x: dfFF.loc[x['symbol'],'roznica'] if x['symbol'] not in ingotwanie_symbol  else x,axis=1)
-#dfFFbilans['srednia']=(dfFFbilans['roznicaBilans']+dfFFbilans['roznica'])/2
+dfFFbilans['roznica']=dfFFbilans.apply(lambda x: dfFF.loc[x['symbol'],'roznica'] if x['symbol'] not in ingotwanie_symbol  else x['roznicaBilans'],axis=1)
+
+dfFFbilans['srednia']=dfFFbilans.apply(lambda x: (x['roznicaBilans']+x['roznica'])/2 if x['roznicaBilans'] != None and x['roznica'] != None else None,axis=1)
+dfFFbilans['docelowaCenatemp'] = np.where(dfFFbilans['srednia'] < 0,dfFFbilans['srednia']*10,(dfFFbilans['srednia']-dfFFbilans['AktualnyKwartalSpadek_bilans'])*10)
+dfFFbilans['docelowaCenatemp'] = dfFFbilans['docelowaCenatemp']*0.2
+dfFFbilans['Cena docelowa']=dfFFbilans['Kurs']+(dfFFbilans['Kurs']*dfFFbilans['docelowaCenatemp'])
+dfFFbilans['potencjalny wzrost']=(dfFFbilans['Cena docelowa']-dfFFbilans['cena akt'])/dfFFbilans['cena akt']
+# dfFFbilans['potencjalny wzrost']=dfFFbilans['potencjalny wzrost']*100
 print(dfFFbilans)
 
 
