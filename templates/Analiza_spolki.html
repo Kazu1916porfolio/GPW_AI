@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>Analiza Spółek GPW</h2>
+
+    <!-- Menu kontekstowe -->
+    <div id="contextMenu" class="context-menu">
+        <ul>
+            <li id="chartOption">Pokaż wykres dla tej kolumny</li>
+        </ul>
+    </div>
+
+    <!-- Kontrolki wyszukiwania, wykresów i paginacji -->
+    <div class="controls">
+        <div class="search-container">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Wyszukaj spółkę..." onkeyup="searchTable()" style="width: 200px;">
+            </div>
+
+            <!-- Lista kolumn do wykresu -->
+            <div id="chartColumnSelector" class="chart-column-selector" style="display: none;">
+                <label for="chartColumn">Kolumna do wykresu:</label>
+                <select id="chartColumn">
+                    {% for column in dane.columns %}
+                        {% if column not in ['symbol', 'okres'] %}
+                            <option value="{{ column }}">{{ column }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+                <button onclick="generateChartFromSearch()">Pokaż wykres</button>
+            </div>
+        </div>
+
+        <div class="rows-per-page">
+            <label for="rowsPerPage">Wierszy na stronę:</label>
+            <select id="rowsPerPage" onchange="changeRowsPerPage()">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="0">Wszystkie</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Kontener wykresu -->
+    <div id="chartContainer" style="display: none; margin-top: 30px;">
+        <h3 id="chartTitle"></h3>
+        <canvas id="myChart"></canvas>
+    </div>
+
+    <!-- Tabela -->
+    <div class="table-container">
+        <table id="fresh-table">
+            <thead>
+                <tr>
+                    {% for column in dane.columns %}
+                        <th>{{ column }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for index, row in dane.iterrows() %}
+                <tr class="data-row" data-symbol="{{ row['symbol'] }}" style="display: {% if loop.index > 10 %}none{% else %}table-row{% endif %}">
+                    {% for column in dane.columns %}
+                        <td data-column="{{ column }}">{{ row[column] }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginacja -->
+    <div class="pagination-controls">
+        <button id="prevPage" onclick="prevPage()" disabled>Poprzednia</button>
+        <span id="pageInfo">Strona 1 z {{ (dane.shape[0] / 10)|round(0, 'ceil')|int }}</span>
+        <button id="nextPage" onclick="nextPage()" {% if dane.shape[0] <= 10 %}disabled{% endif %}>Następna</button>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Zmienne globalne
+let currentPage = 1;
+let rowsPerPage = 10;
+const totalRows = {{ dane.shape[0] }};
+let totalPages = Math.ceil(totalRows / rowsPerPage);
+let selectedSymbol = '';
+let selectedColumn = '';
+let myChart = null;
+
+// Obsługa wyszukiwania - pokaż listę kolumn gdy jest wpisany symbol
+document.getElementById('searchInput').addEventListener('input', function() {
+    const chartColumnSelector = document.getElementById('chartColumnSelector');
+    chartColumnSelector.style.display = this.value.trim() ? 'flex' : 'none';
+});
+
+// Generuj wykres dla wyszukanego symbolu i wybranej kolumny
+async function generateChartFromSearch() {
+    selectedSymbol = document.getElementById('searchInput').value.trim();
+    selectedColumn = document.getElementById('chartColumn').value;
+
+    if (selectedSymbol) {
+        await showChart();
+    } else {
+        alert('Proszę wpisać symbol spółki');
+    }
+}
+
+// Inicjalizacja menu kontekstowego
+const contextMenu = document.getElementById('contextMenu');
+const chartOption = document.getElementById('chartOption');
+
+// Ukryj menu kontekstowe przy kliknięciu gdziekolwiek
+document.addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+});
+
+// Pokaż menu kontekstowe po kliknięciu prawym przyciskiem
+document.querySelectorAll('#fresh-table tbody tr').forEach(row => {
+    row.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+
+        // Pobierz symbol spółki i kolumnę
+        const clickedCell = e.target.closest('td');
+        selectedSymbol = e.target.closest('tr').dataset.symbol;
+        selectedColumn = clickedCell.dataset.column;
+
+        // Ustaw wartość w select i wyszukiwaniu
+        document.getElementById('searchInput').value = selectedSymbol;
+        document.getElementById('chartColumn').value = selectedColumn;
+        document.getElementById('chartColumnSelector').style.display = 'flex';
+
+        // Ustaw pozycję menu
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = `${e.pageX}px`;
+        contextMenu.style.top = `${e.pageY}px`;
+    });
+});
+
+// Obsługa wyboru opcji z menu
+chartOption.addEventListener('click', async () => {
+    contextMenu.style.display = 'none';
+    await showChart();
+});
+
+// Funkcja do pokazywania wykresu
+async function showChart() {
+    try {
+        const response = await fetch(`/get_chart_data?symbol=${selectedSymbol}&column=${selectedColumn}`);
+        const data = await response.json();
+
+        // Przygotuj dane
+        const labels = data.map(item => item.okres);
+        const values = data.map(item => parseFloat(item.value.toString().replace(',', '.')));
+
+        // Wyświetl kontener wykresu
+        const chartContainer = document.getElementById('chartContainer');
+        chartContainer.style.display = 'block';
+        document.getElementById('chartTitle').textContent = `${selectedSymbol} - ${selectedColumn}`;
+
+        // Przewiń do wykresu
+        chartContainer.scrollIntoView({ behavior: 'smooth' });
+
+        // Stwórz lub zaktualizuj wykres
+        const ctx = document.getElementById('myChart').getContext('2d');
+
+        if (myChart) {
+            myChart.destroy();
+        }
+
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: selectedColumn,
+                    data: values,
+                    borderColor: '#D2AC47',
+                    backgroundColor: 'rgba(210, 172, 71, 0.1)',
+                    borderWidth: 2,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: `${selectedSymbol} - ${selectedColumn}`
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Błąd podczas pobierania danych wykresu:', error);
+        alert('Wystąpił błąd podczas generowania wykresu');
+    }
+}
+
+// Funkcja wyszukiwania (uwzględnia małe litery)
+function searchTable() {
+    const input = document.getElementById("searchInput");
+    const filter = input.value.toLowerCase(); // Zmiana na toLowerCase()
+    const rows = document.querySelectorAll('.data-row');
+    let visibleRows = 0;
+
+    rows.forEach(row => {
+        let found = false;
+        const cells = row.getElementsByTagName("td");
+
+        for (let j = 0; j < cells.length; j++) {
+            if (cells[j]) {
+                const txtValue = (cells[j].textContent || cells[j].innerText).toLowerCase(); // Zmiana na toLowerCase()
+                if (txtValue.includes(filter)) { // Użycie includes zamiast indexOf
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        if (found) {
+            row.style.display = 'table-row';
+            visibleRows++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    // Aktualizuj paginację
+    currentPage = 1;
+    updatePaginationControls();
+
+    // Aktualizuj widoczność selektora kolumn
+    document.getElementById('chartColumnSelector').style.display = filter ? 'flex' : 'none';
+}
+
+// Reszta funkcji (paginacja) pozostaje bez zmian
+function changeRowsPerPage() {
+    rowsPerPage = parseInt(document.getElementById('rowsPerPage').value);
+    currentPage = 1;
+    totalPages = rowsPerPage === 0 ? 1 : Math.ceil(totalRows / rowsPerPage);
+    updateTable();
+    updatePaginationControls();
+}
+
+function updateTable() {
+    const rows = document.querySelectorAll('.data-row');
+    const start = (currentPage - 1) * rowsPerPage;
+    const end = rowsPerPage === 0 ? rows.length : start + rowsPerPage;
+
+    rows.forEach((row, index) => {
+        if (rowsPerPage === 0 || (index >= start && index < end)) {
+            row.style.display = 'table-row';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function updatePaginationControls() {
+    document.getElementById('pageInfo').textContent = `Strona ${currentPage} z ${totalPages}`;
+
+    document.getElementById('prevPage').disabled = currentPage === 1;
+    document.getElementById('nextPage').disabled =
+        rowsPerPage === 0 || currentPage === totalPages;
+}
+
+function prevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        updateTable();
+        updatePaginationControls();
+    }
+}
+
+function nextPage() {
+    if (currentPage < totalPages) {
+        currentPage++;
+        updateTable();
+        updatePaginationControls();
+    }
+}
+</script>
+
+<style>
+/* Nowe style dla kontrolek wykresu */
+.search-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.chart-column-selector {
+    display: none; /* Zmieniane na flex przez JS */
+    align-items: center;
+    gap: 10px;
+    background: rgba(210, 172, 71, 0.1);
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.chart-column-selector label {
+    font-weight: 500;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.chart-column-selector select {
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-color);
+    min-width: 200px;
+}
+
+.chart-column-selector button {
+    padding: 6px 12px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.chart-column-selector button:hover {
+    opacity: 0.9;
+}
+
+/* Reszta styli pozostaje bez zmian */
+.context-menu {
+    display: none;
+    position: absolute;
+    z-index: 1000;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    width: 250px;
+}
+
+.context-menu ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.context-menu li {
+    padding: 10px 15px;
+    cursor: pointer;
+    color: var(--text-color);
+}
+
+.context-menu li:hover {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.controls {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.rows-per-page {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rows-per-page select {
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-color);
+}
+
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.pagination-controls button {
+    padding: 8px 16px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.pagination-controls button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+.search-box {
+    margin-right: 20px;
+}
+.pagination-controls button:hover:not(:disabled) {
+    opacity: 0.8;
+}
+
+#chartContainer {
+    background-color: var(--card-bg);
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+#chartTitle {
+    margin-bottom: 20px;
+    color: var(--text-color);
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+    .search-container, .controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .chart-column-selector {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+</style>
+{% endblock %}

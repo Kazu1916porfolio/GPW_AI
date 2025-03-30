@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kazuapp - Analiza Spółek GPW</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+</head>
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="{{ url_for('static', filename='Kazuapp2v3.png') }}" alt="Logo" class="sidebar-logo">
+
+        </div>
+
+        <ul class="sidebar-menu">
+            <li><a href="/"><i class='bx bx-home'></i> Strona główna</a></li>
+            <li><a href="/Analiza_spolki"><i class='bx bx-bar-chart-alt'></i> Analiza spółek</a></li>
+
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="dark-mode-toggle">
+                <i class='bx bx-moon'></i>
+                <span>Tryb ciemny</span>
+                <div class="toggle-switch"></div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        // Dark mode toggle
+        const darkModeToggle = document.querySelector('.dark-mode-toggle');
+        const body = document.body;
+
+        // Check for saved user preference
+        if (localStorage.getItem('darkMode') === 'enabled') {
+            body.classList.add('dark-mode');
+        }
+
+        darkModeToggle.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+
+            // Save user preference
+            if (body.classList.contains('dark-mode')) {
+                localStorage.setItem('darkMode', 'enabled');
+            } else {
+                localStorage.setItem('darkMode', 'disabled');
+            }
+        });
+
+        // Mobile menu toggle (for future responsiveness)
+        const menuToggle = document.querySelector('.menu-toggle');
+        if (menuToggle) {
+            menuToggle.addEventListener('click', () => {
+                document.querySelector('.sidebar').classList.toggle('active');
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>Aktualne Wskaźniki</h2>
+    
+    <!-- Przycisk do wczytywania pliku -->
+    <div class="file-upload">
+        <label for="xlsxFile">Wybierz plik XLSX:</label>
+        <input type="file" id="xlsxFile" accept=".xlsx" onchange="loadXLSXFile()">
+        <div id="fileName" class="file-name"></div>
+    </div>
+    
+    <!-- Menu kontekstowe -->
+    <div id="contextMenu" class="context-menu">
+        <ul>
+            <li id="chartOption">Pokaż wykres dla tej kolumny</li>
+        </ul>
+    </div>
+    
+    <!-- Kontrolki wyszukiwania i wykresów -->
+    <div class="controls" id="controlsContainer" style="display: none;">
+        <div class="search-container">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Wyszukaj spółkę..." onkeyup="searchTable()">
+            </div>
+            
+            <div id="chartColumnSelector" class="chart-column-selector">
+                <label for="chartColumn">Kolumna do wykresu:</label>
+                <select id="chartColumn"></select>
+                <button onclick="generateChartFromSearch()">Pokaż wykres</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Kontener wykresu -->
+    <div id="chartContainer" style="display: none; margin-top: 30px;">
+        <h3 id="chartTitle"></h3>
+        <canvas id="myChart"></canvas>
+    </div>
+
+    <!-- Tabela -->
+    <div class="table-container">
+        <table id="fresh-table" style="display: none;">
+            <thead>
+                <tr id="tableHeader"></tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// Zmienne globalne
+let currentData = [];
+let selectedSymbol = '';
+let selectedColumn = '';
+let myChart = null;
+
+// Wczytaj plik XLSX
+function loadXLSXFile() {
+    const fileInput = document.getElementById('xlsxFile');
+    const fileNameDisplay = document.getElementById('fileName');
+    const file = fileInput.files[0];
+    
+    if (!file) return;
+    
+    fileNameDisplay.textContent = file.name;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        // Załóżmy, że dane są w pierwszym arkuszu
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // Konwertuj do JSON
+        currentData = XLSX.utils.sheet_to_json(worksheet);
+        
+        if (currentData.length > 0) {
+            // Wyświetl kontrolki i tabelę
+            document.getElementById('controlsContainer').style.display = 'block';
+            document.getElementById('fresh-table').style.display = 'table';
+            
+            // Wypełnij nagłówek tabeli
+            const tableHeader = document.getElementById('tableHeader');
+            tableHeader.innerHTML = '';
+            
+            Object.keys(currentData[0]).forEach(key => {
+                const th = document.createElement('th');
+                th.textContent = key;
+                tableHeader.appendChild(th);
+            });
+            
+            // Wypełnij ciało tabeli
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+            
+            currentData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.dataset.symbol = row['symbol'] || '';
+                
+                Object.values(row).forEach(value => {
+                    const td = document.createElement('td');
+                    td.textContent = value;
+                    tr.appendChild(td);
+                });
+                
+                tableBody.appendChild(tr);
+            });
+            
+            // Wypełnij listę kolumn do wykresu (pomijaj symbol i okres)
+            const chartColumnSelect = document.getElementById('chartColumn');
+            chartColumnSelect.innerHTML = '';
+            
+            Object.keys(currentData[0]).forEach(key => {
+                if (!['symbol', 'okres'].includes(key)) {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = key;
+                    chartColumnSelect.appendChild(option);
+                }
+            });
+            
+            // Inicjalizuj menu kontekstowe
+            initContextMenu();
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+// Inicjalizacja menu kontekstowego
+function initContextMenu() {
+    const contextMenu = document.getElementById('contextMenu');
+    const chartOption = document.getElementById('chartOption');
+    
+    // Ukryj menu kontekstowe przy kliknięciu gdziekolwiek
+    document.addEventListener('click', () => {
+        contextMenu.style.display = 'none';
+    });
+    
+    // Pokaż menu kontekstowe po kliknięciu prawym przyciskiem
+    document.querySelectorAll('#fresh-table tbody tr').forEach(row => {
+        row.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            
+            // Pobierz symbol spółki i kolumnę
+            const clickedCell = e.target.closest('td');
+            selectedSymbol = e.target.closest('tr').dataset.symbol;
+            
+            // Znajdź nazwę kolumny
+            const headerCells = document.querySelectorAll('#fresh-table thead th');
+            const cellIndex = Array.from(clickedCell.parentNode.children).indexOf(clickedCell);
+            selectedColumn = headerCells[cellIndex].textContent;
+            
+            // Ustaw wartość w select i wyszukiwaniu
+            document.getElementById('searchInput').value = selectedSymbol;
+            document.getElementById('chartColumn').value = selectedColumn;
+            
+            // Ustaw pozycję menu
+            contextMenu.style.display = 'block';
+            contextMenu.style.left = `${e.pageX}px`;
+            contextMenu.style.top = `${e.pageY}px`;
+        });
+    });
+    
+    // Obsługa wyboru opcji z menu
+    chartOption.addEventListener('click', async () => {
+        contextMenu.style.display = 'none';
+        await showChart();
+    });
+}
+
+// Generuj wykres dla wyszukanego symbolu i wybranej kolumny
+async function generateChartFromSearch() {
+    selectedSymbol = document.getElementById('searchInput').value.trim();
+    selectedColumn = document.getElementById('chartColumn').value;
+    
+    if (selectedSymbol) {
+        await showChart();
+    } else {
+        alert('Proszę wpisać symbol spółki');
+    }
+}
+
+// Funkcja do pokazywania wykresu (pobieranie danych z endpointu)
+async function showChart() {
+    try {
+        // Pobierz dane z endpointu
+        const response = await fetch(`/get_chart_data?symbol=${selectedSymbol}&column=${selectedColumn}`);
+        if (!response.ok) {
+            throw new Error('Błąd podczas pobierania danych');
+        }
+        const data = await response.json();
+        
+        if (data.length === 0) {
+            throw new Error('Brak danych do wyświetlenia dla wybranych parametrów');
+        }
+        
+        // Przygotuj dane
+        const labels = data.map(item => item.okres);
+        const values = data.map(item => {
+            const num = parseFloat(item.value?.toString().replace(',', '.') || 0);
+            return isNaN(num) ? 0 : num;
+        });
+        
+        // Wyświetl kontener wykresu
+        const chartContainer = document.getElementById('chartContainer');
+        chartContainer.style.display = 'block';
+        document.getElementById('chartTitle').textContent = `${selectedSymbol} - ${selectedColumn}`;
+        
+        // Przewiń do wykresu
+        chartContainer.scrollIntoView({ behavior: 'smooth' });
+        
+        // Stwórz lub zaktualizuj wykres
+        const ctx = document.getElementById('myChart').getContext('2d');
+        
+        if (myChart) {
+            myChart.destroy();
+        }
+        
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: selectedColumn,
+                    data: values,
+                    borderColor: '#D2AC47',
+                    backgroundColor: 'rgba(210, 172, 71, 0.1)',
+                    borderWidth: 2,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: `${selectedSymbol} - ${selectedColumn}`
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Błąd podczas generowania wykresu:', error);
+        alert(error.message || 'Wystąpił błąd podczas generowania wykresu');
+    }
+}
+
+// Funkcja wyszukiwania (uwzględnia małe litery)
+function searchTable() {
+    const input = document.getElementById("searchInput");
+    const filter = input.value.toLowerCase();
+    const rows = document.querySelectorAll('#fresh-table tbody tr');
+    
+    rows.forEach(row => {
+        const symbol = row.dataset.symbol?.toLowerCase() || '';
+        const cells = row.getElementsByTagName('td');
+        let found = false;
+        
+        // Szukaj w symbolu i komórkach
+        if (symbol.includes(filter)) {
+            found = true;
+        } else {
+            for (let cell of cells) {
+                const txtValue = (cell.textContent || '').toLowerCase();
+                if (txtValue.includes(filter)) {
+                    found = true;
+                    break;
+                }
+            }
+        }
+        
+        row.style.display = found ? 'table-row' : 'none';
+    });
+}
+</script>
+
+<style>
+/* Style dla wczytywania pliku */
+.file-upload {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.file-upload label {
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.file-name {
+    font-style: italic;
+    color: var(--primary-color);
+    padding: 5px;
+}
+
+/* Reszta styli pozostaje bez zmian */
+.search-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.chart-column-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(210, 172, 71, 0.1);
+    padding: 8px 12px;
+    border-radius: 4px;
+}
+
+.chart-column-selector label {
+    font-weight: 500;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.chart-column-selector select {
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-color);
+    min-width: 200px;
+}
+
+.chart-column-selector button {
+    padding: 6px 12px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.context-menu {
+    display: none;
+    position: absolute;
+    z-index: 1000;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    width: 250px;
+}
+
+.context-menu ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.context-menu li {
+    padding: 10px 15px;
+    cursor: pointer;
+    color: var(--text-color);
+}
+
+.context-menu li:hover {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.controls {
+    margin-bottom: 20px;
+}
+
+#chartContainer {
+    background-color: var(--card-bg);
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+#chartTitle {
+    margin-bottom: 20px;
+    color: var(--text-color);
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+    .search-container, .chart-column-selector {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+</style>
+{% endblock %}

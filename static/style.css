@@ -1,0 +1,221 @@
+:root {
+    /* Kolory jasnego trybu */
+    --primary-color: #695CFE;
+    --sidebar-bg: #2A2B2F;
+    --sidebar-text: #E4E9F7;
+    --main-bg: #F5F5F9;
+    --card-bg: #FFFFFF;
+    --text-color: #2A2B2F;
+    --border-color: #E4E9F7;
+
+    /* Kolory ciemnego trybu */
+    --dark-primary: #D2AC47;
+    --dark-sidebar-bg: #1E1E1E;
+    --dark-main-bg: #121212;
+    --dark-card-bg: #1E1E1E;
+    --dark-text-color: #E4E9F7;
+    --dark-border-color: #333;
+}
+
+/* Reset i podstawowe style */
+<link href="https://fonts.googleapis.com/css?family=Poppins" rel="stylesheet">
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+body {
+    background-color: var(--main-bg);
+    color: var(--text-color);
+    transition: all 0.3s ease;
+}
+
+body.dark-mode {
+    --primary-color: var(--dark-primary);
+    --sidebar-bg: var(--dark-sidebar-bg);
+    --main-bg: var(--dark-main-bg);
+    --card-bg: var(--dark-card-bg);
+    --text-color: var(--dark-text-color);
+    --border-color: var(--dark-border-color);
+}
+
+/* Sidebar */
+.sidebar {
+    position: fixed;
+    width: 250px;
+    height: 100vh;
+    background: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    padding: 20px 0;
+    transition: all 0.3s ease;
+    z-index: 100;
+}
+
+.sidebar-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 20px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-logo {
+    width: 100px;
+    margin-bottom: 10px;
+}
+
+.app-name {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--sidebar-text);
+}
+
+.sidebar-menu {
+    margin-top: 20px;
+}
+
+.sidebar-menu li {
+    list-style: none;
+    margin: 5px 0;
+}
+
+.sidebar-menu a {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    color: var(--sidebar-text);
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.sidebar-menu a:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--primary-color);
+}
+
+.sidebar-menu i {
+    margin-right: 10px;
+    font-size: 1.2rem;
+}
+
+.sidebar-footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    padding: 20px;
+}
+
+.dark-mode-toggle {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    color: var(--sidebar-text);
+}
+
+.toggle-switch {
+    width: 40px;
+    height: 20px;
+    background: #555;
+    border-radius: 10px;
+    margin-left: 10px;
+    position: relative;
+}
+
+.toggle-switch::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    top: 2px;
+    left: 2px;
+    transition: all 0.3s ease;
+}
+
+body.dark-mode .toggle-switch::before {
+    left: 22px;
+}
+
+/* Main Content */
+.main-content {
+    margin-left: 250px;
+    padding: 30px;
+    min-height: 100vh;
+    transition: all 0.3s ease;
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+    }
+
+    .main-content {
+        margin-left: 0;
+    }
+
+    .sidebar-menu {
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    .sidebar-menu li {
+        flex: 1 0 auto;
+    }
+}
+
+/* Dodatkowe style dla zawartości */
+.card {
+    background: var(--card-bg);
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.table-container {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+th, td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+th {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+tr:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+body.dark-mode tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.search-box {
+    margin-bottom: 20px;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 10px 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--card-bg);
+    color: var(--text-color);
+}
