@@ -53,16 +53,16 @@ python data_refresh.py
 # 4. Adding data files to colab
 "Place the files ('maszynowe16.xlsx','maszynoweBilansOnlyV2.xlsx') from the project folder on the disk in colab"
 
-# 4. Model training (optional)
+# 5. Model training (optional)
 "run the scripts in colab ('training_neural_network_indicators.ipynb','training_neural_network_Balance.ipynb')"
 
-# 5. Prediction and report creation
+# 6. Prediction and report creation
 "run the scripts in colab AI_Indicators.ipynb"
 "run the scripts in colab Bilans_raport.ipynb"
 
-# 6. Download the prediction report
+# 7. Download the prediction report
 "Download file from colab disc 'raportSpadekBilans_FINAL.xlsx'"
-# 7. Run application
+# 8. Run application
 python app.py
 ```
 
