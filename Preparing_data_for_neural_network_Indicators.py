@@ -128,6 +128,7 @@ def Wskazniki_do_sieci_neur():
         sqlite_connection)
     #df1=pd.read_csv('GPW2.csv')
     df1 = df1.drop_duplicates(['symbol', 'okres'])
+
     print(df1['liczba akcji2'])
     print(df1['Liczba akcji'])
     print(df1.columns)
@@ -170,7 +171,7 @@ def Wskazniki_do_sieci_neur():
 
     resultAKT=resultAKT.fillna(0)
     listaCol=resultAKT.columns
-
+    result.replace([np.inf, -np.inf], np.nan, inplace=True)
     for col in listaCol:
         if col in colselect or col.find('proc') != -1:
             print(result[col])

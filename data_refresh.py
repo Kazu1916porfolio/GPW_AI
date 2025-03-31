@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine,text
 from Preparing_data_for_neural_network_Indicators import Wskazniki_do_sieci_neur,srawdza_czy_wzrost
 from Preparing_data_for_neural_network_Balance import Bilans_do_sieci_neur,srawdza_czy_wzrost
 
@@ -332,6 +332,7 @@ def pobieranie_danych_biznesradar_WSK(listaSymboliGPW):
         if len(OkresList) > 0:
             result = pd.concat(frames,axis=1)
 
+
             ### dodawanie do tebeli
             engine = create_engine('sqlite:///GPW3.db', echo=True)
             sqlite_connection = engine.connect()
@@ -545,10 +546,20 @@ def pobieranie_danych_biznesradar(listaSymboliGPW):
 
         if len(OkresList) > 0:
             result = pd.concat(frames,axis=1)
+            cols_to_keep = []
+            cols_to_drop = []
+            for i, col in enumerate(result.columns):
+                if col not in cols_to_keep:
+                    cols_to_keep.append(col)
+                else:
+                    cols_to_drop.append(col)
 
+            # Usuń duplikaty kolumn
+            result = result.drop(columns=cols_to_drop, errors='ignore')
             ### dodawanie do tebeli
             engine = create_engine('sqlite:///GPW3.db', echo=True)
             sqlite_connection = engine.connect()
+            print(result.columns)
             try:
                 result.to_sql('RaportyGPW_biznesradar_Bilans_only4', sqlite_connection, if_exists='append',
                                index=False)

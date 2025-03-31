@@ -164,7 +164,7 @@ def Bilans_do_sieci_neur():
 
     resultAKT=resultAKT.fillna(0)
     listaCol=resultAKT.columns
-
+    result.replace([np.inf, -np.inf], np.nan, inplace=True)
     for col in listaCol:
         if col in colselect or col.find('proc') != -1:
             #print(result[col])
