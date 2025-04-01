@@ -102,7 +102,7 @@ def Bilans_do_sieci_neur():
 
 
     df1 = df1.loc[:, ~df1.columns.duplicated()].copy()
-    df1 = df1.drop(columns=['liczba akcji2', 'Data publikacji'])
+    df1 = df1.drop(columns=['liczba akcji2'])
     df1 = df1.apply(pd.to_numeric, downcast='integer', errors='ignore')
 
     df1=df1.dropna(subset=['Liczba akcji'])
