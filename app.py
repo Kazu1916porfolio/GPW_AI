@@ -31,7 +31,10 @@ def Analiza_spolki():
     dfSQL = pd.read_sql_query(
         "SELECT * FROM RaportyGPW_biznesradar_wskazniki", sqlite_connection)
     dfSQL = dfSQL.drop_duplicates(['symbol', 'okres'])
-    dfSQL=dfSQL.drop(columns=['Unnamed: 0'])
+    try:
+        dfSQL=dfSQL.drop(columns=['Unnamed: 0'])
+    except:
+        ""
     dfSQL = dfSQL[['symbol', 'okres', 'Wartość księgowa na akcję', 'Wartość księgowa Grahama na akcję',
                    'Przychody ze sprzedaży na akcję', 'Zysk na akcję', 'Zysk operacyjny na akcję',
                    'Enterprise Value na akcję', 'ROE', 'ROA'
